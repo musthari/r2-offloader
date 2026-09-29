@@ -4,11 +4,85 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class R2_Offloader_CLI_Command {
 
     /**
-     * Sinkronisasi gambar lama ke Cloudflare R2
+     * Fast Migration khusus situs besar (150k+ gambar):
+     * Langsung menandai status offloaded & mengganti URL di database tanpa re-upload.
+     * 
+     * ## OPTIONS
+     * 
+     * ## EXAMPLES
+     *     wp r2-offload fast-migrate
+     * 
+     * @subcommand fast-migrate
+     */
+    public function fast_migrate( $args, $assoc_args ) {
+        global $wpdb;
+        $cdn_domain = rtrim( get_option( 'r2_cdn_domain' ), '/' );
+        $upload_dir = wp_upload_dir();
+        $base_url   = rtrim( $upload_dir['baseurl'], '/' );
+
+        if ( empty( $cdn_domain ) ) {
+            WP_CLI::error( "Custom Domain CDN URL belum dikonfigurasi di admin WordPress!" );
+            return;
+        }
+
+        WP_CLI::log( "Memulai Fast Migration untuk database masif..." );
+
+        // 1. Ambil seluruh ID attachment gambar yang belum ditandai _r2_offloaded
+        $query_get_ids = "
+            SELECT p.ID 
+            FROM {$wpdb->posts} p
+            LEFT JOIN {$wpdb->postmeta} pm ON (p.ID = pm.post_id AND pm.meta_key = '_r2_offloaded')
+            WHERE p.post_type = 'attachment' 
+            AND p.post_mime_type LIKE 'image/%'
+            AND (pm.meta_value IS NULL OR pm.meta_value != '1')
+        ";
+
+        $attachment_ids = $wpdb->get_col( $query_get_ids );
+        $total = count( $attachment_ids );
+
+        if ( empty( $attachment_ids ) ) {
+            WP_CLI::success( "Semua media sudah terdaftar sebagai offloaded di R2." );
+            return;
+        }
+
+        WP_CLI::log( "Ditemukan {$total} media yang akan di-migrate secara langsung..." );
+
+        // 2. Batch Insert Meta _r2_offloaded = 1 secara langsung via SQL
+        $chunks = array_chunk( $attachment_ids, 5000 );
+        $progress_meta = \WP_CLI\Utils\make_progress_bar( 'Langkah 1: Tagging Metadata DB', count( $chunks ) );
+
+        foreach ( $chunks as $chunk_ids ) {
+            $values = array();
+            foreach ( $chunk_ids as $id ) {
+                $values[] = $wpdb->prepare( "(%d, '_r2_offloaded', '1')", $id );
+            }
+            $sql_insert = "INSERT IGNORE INTO {$wpdb->postmeta} (post_id, meta_key, meta_value) VALUES " . implode( ',', $values );
+            $wpdb->query( $sql_insert );
+            $progress_meta->tick();
+        }
+        $progress_meta->finish();
+
+        // 3. Direct SQL Replace URL Lokal ke CDN R2 di post_content
+        WP_CLI::log( "Langkah 2: Mengganti URL lokal ke CDN R2 di tabel post_content..." );
+        
+        $sql_replace = $wpdb->prepare(
+            "UPDATE {$wpdb->posts} SET post_content = REPLACE(post_content, %s, %s) WHERE post_content LIKE %s",
+            $base_url,
+            $cdn_domain,
+            '%' . $wpdb->esc_like( $base_url ) . '%'
+        );
+
+        $affected_rows = $wpdb->query( $sql_replace );
+
+        WP_CLI::success( "Fast Migration Selesai! Berhasil memigrasikan {$total} media. URL yang diperbarui di artikel: {$affected_rows} baris." );
+    }
+
+    /**
+     * Sync standar dengan pengecekan file R2
      * 
      * ## OPTIONS
      * [--batch-size=<size>]
-     * : Jumlah gambar yang diproses per batch.
+     * : Jumlah gambar per batch.
      * ---
      * default: 50
      * ---
@@ -59,7 +133,7 @@ class R2_Offloader_CLI_Command {
     }
 
     /**
-     * Membersihkan file -scaled redundan lama secara aman
+     * Membersihkan file -scaled redundan
      * 
      * ## OPTIONS
      * [--batch-size=<size>]
@@ -70,6 +144,8 @@ class R2_Offloader_CLI_Command {
      * 
      * ## EXAMPLES
      *     wp r2-offload clean-scaled --batch-size=100
+     * 
+     * @subcommand clean-scaled
      */
     public function clean_scaled( $args, $assoc_args ) {
         global $wpdb;
@@ -92,12 +168,12 @@ class R2_Offloader_CLI_Command {
         $attachments = $wpdb->get_col( $wpdb->prepare( $query, $batch_size ) );
 
         if ( empty( $attachments ) ) {
-            WP_CLI::success( "Seluruh gambar telah diperiksa. Tidak ada file -scaled yang perlu dibersihkan!" );
+            WP_CLI::success( "Seluruh gambar telah diperiksa!" );
             return;
         }
 
         $count = count( $attachments );
-        WP_CLI::log( "Memeriksa {$count} gambar untuk file -scaled..." );
+        WP_CLI::log( "Memeriksa {$count} gambar..." );
 
         $progress = \WP_CLI\Utils\make_progress_bar( 'Clean Scaled Progress', $count );
         $cleaned  = 0;
@@ -108,13 +184,10 @@ class R2_Offloader_CLI_Command {
 
             if ( $relative_path && strpos( $relative_path, '-scaled.' ) !== false ) {
                 $original_relative_path = preg_replace( '/-scaled\./', '.', $relative_path );
-                
                 $scaled_local_file   = $base_dir . $relative_path;
                 $original_local_file = $base_dir . $original_relative_path;
 
-                // Memastikan file original lokal ada sebelum melakukan pembersihan
                 if ( file_exists( $original_local_file ) ) {
-                    
                     $is_offloaded = get_post_meta( $post_id, '_r2_offloaded', true );
                     if ( $is_offloaded ) {
                         $core->upload_file_to_r2( $original_local_file, $original_relative_path );
@@ -139,7 +212,6 @@ class R2_Offloader_CLI_Command {
                     }
 
                     update_post_meta( $post_id, '_wp_attached_file', $original_relative_path );
-
                     $core->delete_file_from_r2( $relative_path );
 
                     if ( file_exists( $scaled_local_file ) ) {
@@ -157,7 +229,7 @@ class R2_Offloader_CLI_Command {
         }
 
         $progress->finish();
-        WP_CLI::success( "Batch selesai! (Berhasil Dihapus: {$cleaned}, Di-skip: {$skipped})" );
+        WP_CLI::success( "Batch selesai! (Cleaned: {$cleaned}, Skipped: {$skipped})" );
     }
 }
 
