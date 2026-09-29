@@ -74,8 +74,14 @@ jQuery(function ($) {
 
   $('#r2offloader-settings-form').on('submit', function (e) {
     e.preventDefault();
-    const formData = $(this).serialize();
-    ajaxCall('r2offloader_save_settings', formData, function (data) {
+    const formData = new FormData(this);
+    const data = {};
+    formData.forEach(function(value, key) {
+      if (key !== 'nonce' && key !== 'r2offloader_nonce') {
+        data[key] = value;
+      }
+    });
+    ajaxCall('r2offloader_save_settings', data, function (data) {
       setStatus('r2offloader-bulk-status', data.message || 'Pengaturan tersimpan.', 'success');
     }, function (data) {
       setStatus('r2offloader-bulk-status', data.message || 'Gagal menyimpan.', 'error');
