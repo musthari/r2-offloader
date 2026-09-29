@@ -75,7 +75,7 @@ class R2_Offloader_AJAX {
 				delete_transient( 'r2offloader_bulk_sync_lock' );
 			}
 			wp_send_json_success( $result );
-		} catch ( \\Throwable $e ) {
+		} catch ( Exception $e ) {
 			delete_transient( 'r2offloader_bulk_sync_lock' );
 			wp_send_json_error( array( 'message' => $e->getMessage() ) );
 		}
@@ -100,7 +100,7 @@ class R2_Offloader_AJAX {
 				delete_transient( 'r2offloader_regen_lock' );
 			}
 			wp_send_json_success( $result );
-		} catch ( \\Throwable $e ) {
+		} catch ( Exception $e ) {
 			delete_transient( 'r2offloader_regen_lock' );
 			wp_send_json_error( array( 'message' => $e->getMessage() ) );
 		}
@@ -125,7 +125,7 @@ class R2_Offloader_AJAX {
 				delete_transient( 'r2offloader_rollback_lock' );
 			}
 			wp_send_json_success( $result );
-		} catch ( \\Throwable $e ) {
+		} catch ( Exception $e ) {
 			delete_transient( 'r2offloader_rollback_lock' );
 			wp_send_json_error( array( 'message' => $e->getMessage() ) );
 		}
