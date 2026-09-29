@@ -48,9 +48,8 @@ final class R2_Offloader {
 		$this->settings = new R2_Offloader_Settings();
 		$this->api      = new R2_Offloader_R2_API( $this->settings );
 		$this->media    = new R2_Offloader_Media_Processor( $this->settings );
-		$this->admin    = new R2_Offloader_Admin( $this->settings );
-		$this->ajax     = new R2_Offloader_AJAX( $this->settings, $this->api, $this->media, $this->recovery ?? null );
 		$this->recovery = new R2_Offloader_Recovery( $this->settings, $this->media );
+		$this->admin    = new R2_Offloader_Admin( $this->settings );
 		$this->ajax     = new R2_Offloader_AJAX( $this->settings, $this->api, $this->media, $this->recovery );
 		$this->cli      = new R2_Offloader_CLI( $this->settings, $this->media, $this->api, $this->recovery );
 	}
@@ -121,7 +120,7 @@ final class R2_Offloader {
 			}
 
 			foreach ( $files as $file ) {
-				if ( str_contains( basename( $file ), '-scaled' ) && file_exists( $file ) ) {
+				if ( false !== strpos( basename( $file ), '-scaled' ) && file_exists( $file ) ) {
 					@unlink( $file );
 				}
 			}
