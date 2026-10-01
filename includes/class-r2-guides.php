@@ -5,7 +5,7 @@ class R2_Guides {
 
     public static function render_tab_guide_cloudflare() {
         ?>
-        <div class="card" style="margin-top:20px; padding:25px; background:#fff; max-width:900px; line-height:1.7;">
+        <div class="card r2-card-guide">
             <h2>Panduan Lengkap Konfigurasi Cloudflare R2 & Custom Domain</h2>
             <p>Ikuti langkah-langkah berikut untuk mendapatkan kredensial API dan menghubungkan domain CDN secara gratis bebas biaya transfer (Zero Egress Fee):</p>
             
@@ -52,7 +52,7 @@ class R2_Guides {
 
     public static function render_tab_guide_wpcli() {
         ?>
-        <div class="card" style="margin-top:20px; padding:25px; background:#fff; max-width:900px; line-height:1.7;">
+        <div class="card r2-card-guide">
             <h2>Panduan Eksekusi WP-CLI Sync & Maintenance (Terminal SSH)</h2>
             <p>Untuk situs berita berukuran besar dengan puluhan hingga ratusan ribu gambar, penggunaan terminal SSH via <strong>WP-CLI</strong> adalah metode paling stabil, cepat, dan anti-timeout.</p>
 
@@ -60,27 +60,13 @@ class R2_Guides {
 
             <h3>1. Perintah Fast Migration (Super Cepat untuk 150k+ Gambar)</h3>
             <p>Gunakan perintah ini jika seluruh file fisik gambar <strong>sudah terunggah di Cloudflare R2</strong> (misalnya hasil migrasi Rclone atau plugin lama). Perintah ini akan langsung memperbarui database dalam hitungan detik tanpa re-upload:</p>
-            <pre style="background:#282c34; color:#abb2bf; padding:15px; border-radius:6px; font-size:14px; font-family:monospace;">wp r2-offload fast-migrate</pre>
+            <pre class="r2-code-block">wp r2-offload fast-migrate</pre>
 
             <h3 style="margin-top:25px;">2. Perintah Sync Standar Gambar ke Cloudflare R2</h3>
             <p>Arahkan terminal SSH Anda ke folder utama WordPress, lalu jalankan perintah sinkronisasi standar berikut:</p>
-            <pre style="background:#282c34; color:#abb2bf; padding:15px; border-radius:6px; font-size:14px; font-family:monospace;">wp r2-offload sync --batch-size=100</pre>
+            <pre class="r2-code-block">wp r2-offload sync --batch-size=100</pre>
             <p>Untuk menjalankan sinkronisasi otomatis sampai selesai (100% finished), gunakan bash loop:</p>
-            <pre style="background:#282c34; color:#abb2bf; padding:15px; border-radius:6px; font-size:14px; font-family:monospace;">while wp r2-offload sync --batch-size=100; do sleep 1; done</pre>
-
-            <h3 style="margin-top:25px;">3. Perintah Clean Scaled Images Lama</h3>
-            <p>Untuk memindai dan membersihkan file <code>-scaled</code> redundan secara aman langsung via SSH, jalankan perintah ini:</p>
-            <pre style="background:#282c34; color:#abb2bf; padding:15px; border-radius:6px; font-size:14px; font-family:monospace;">wp r2-offload clean-scaled --batch-size=100</pre>
-            <p>Untuk memproses seluruh perpustakaan media tanpa henti hingga selesai:</p>
-            <pre style="background:#282c34; color:#abb2bf; padding:15px; border-radius:6px; font-size:14px; font-family:monospace;">while wp r2-offload clean-scaled --batch-size=100; do sleep 1; done</pre>
-
-            <h3 style="margin-top:25px;">4. Catatan Keamanan Perintah Clean-Scaled</h3>
-            <ul style="list-style-type:disc; margin-left:20px;">
-                <li><strong>Auto-Upload Original:</strong> Jika file asli ada di server lokal, sistem akan mengunggah file asli tersebut ke R2.</li>
-                <li><strong>Safe Replacement:</strong> URL pada postingan akan diubah dari <code>-scaled</code> ke file original.</li>
-                <li><strong>Pembersihan Bersih:</strong> File <code>-scaled</code> baru akan dihapus dari server lokal dan R2 setelah file original dipastikan aman.</li>
-                <li><strong>Skip Rule:</strong> Jika file asli lokal hilang/tidak ditemukan, gambar <code>-scaled</code> tersebut akan di-skip untuk mencegah gambar rusak (*broken image*).</li>
-            </ul>
+            <pre class="r2-code-block">while wp r2-offload sync --batch-size=100; do sleep 1; done</pre>
         </div>
         <?php
     }

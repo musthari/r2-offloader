@@ -13,13 +13,10 @@ class R2_Core {
     }
 
     private function __construct() {
-        // Nonaktifkan pembuatan file -scaled bawaan WordPress
+        // NONAKTIFKAN PEMBUATAN FILE -scaled BAWAAN WORDPRESS
         add_filter( 'big_image_size_threshold', '__return_false' );
 
-        // Hook Auto Resize (1000px) & Convert ke WebP saat upload
-        add_filter( 'wp_handle_upload', array( $this, 'process_image_resize_and_webp' ), 10, 2 );
-
-        // Hook Offload ke R2 & Hapus Thumbnail Lokal
+        // Hook Offload ke R2 & Hapus Media Lokal
         add_filter( 'wp_generate_attachment_metadata', array( $this, 'offload_new_upload' ), 10, 2 );
         add_action( 'delete_attachment', array( $this, 'delete_from_r2_on_delete' ) );
 
@@ -27,49 +24,6 @@ class R2_Core {
         add_filter( 'wp_get_attachment_url', array( $this, 'rewrite_attachment_url' ), 10, 2 );
         add_filter( 'wp_get_attachment_image_src', array( $this, 'rewrite_image_src' ), 10, 4 );
         add_filter( 'wp_calculate_image_srcset', array( $this, 'rewrite_image_srcset' ), 10, 5 );
-    }
-
-    /**
-     * PROSES RESIZE MAKSIMAL 1000PX & KONVERSI KE WEBP
-     */
-    public function process_image_resize_and_webp( $upload, $context ) {
-        if ( empty( $upload['type'] ) || strpos( $upload['type'], 'image/' ) === false ) {
-            return $upload;
-        }
-
-        if ( $upload['type'] === 'image/webp' ) {
-            return $upload;
-        }
-
-        $file_path = $upload['file'];
-        if ( ! file_exists( $file_path ) ) {
-            return $upload;
-        }
-
-        $editor = wp_get_image_editor( $file_path );
-        if ( is_wp_error( $editor ) ) {
-            return $upload;
-        }
-
-        $size = $editor->get_size();
-        if ( isset( $size['width'] ) && $size['width'] > 1000 ) {
-            $editor->resize( 1000, null, false );
-        }
-
-        $path_info = pathinfo( $file_path );
-        $new_webp_path = $path_info['dirname'] . '/' . $path_info['filename'] . '.webp';
-
-        $saved = $editor->save( $new_webp_path, 'image/webp' );
-
-        if ( ! is_wp_error( $saved ) && file_exists( $saved['path'] ) ) {
-            @unlink( $file_path );
-
-            $upload['file'] = $saved['path'];
-            $upload['url']  = str_replace( $path_info['basename'], pathinfo( $saved['path'], PATHINFO_BASENAME ), $upload['url'] );
-            $upload['type'] = 'image/webp';
-        }
-
-        return $upload;
     }
 
     /**
@@ -162,7 +116,7 @@ class R2_Core {
     }
 
     /**
-     * CEK APALAH FILE SUDAH ADA DI BUCKET R2 (HTTP HEAD REQUEST)
+     * CEK APABILA FILE SUDAH ADA DI BUCKET R2 (HTTP HEAD REQUEST)
      */
     public function does_file_exist_in_r2( $r2_key ) {
         $response = $this->execute_r2_s3_request( 'HEAD', $r2_key );
